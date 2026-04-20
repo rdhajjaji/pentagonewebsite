@@ -1,5 +1,5 @@
 export async function safeFetch<T>(path: string, fallback: T, init?: RequestInit): Promise<T> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 
   if (!baseUrl) {
     return fallback;

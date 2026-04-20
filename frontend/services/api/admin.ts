@@ -2,12 +2,34 @@ import { adminSessions, adminTrainings, dashboardStats, leads, quotes, adminUser
 import { AdminUser, DashboardStats, Lead, Training, TrainingSession } from "@/types";
 import { safeFetch } from "./client";
 
-export async function loginAdmin(email: string, password: string): Promise<{ success: boolean; user?: AdminUser; token?: string; message?: string }> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+type LoginResult = {
+  success: boolean;
+  user?: AdminUser;
+  token?: string;
+  message?: string;
+  mode?: "api" | "demo";
+};
+
+function isDemoCredentials(email: string, password: string) {
+  return email === adminUser.email && password === "admin123";
+}
+
+function demoLoginResult(): LoginResult {
+  return {
+    success: true,
+    user: adminUser,
+    token: "demo-token",
+    mode: "demo",
+    message: "API indisponible. Connexion en mode démo activée."
+  };
+}
+
+export async function loginAdmin(email: string, password: string): Promise<LoginResult> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 
   if (!baseUrl) {
-    if (email === adminUser.email && password === "admin123") {
-      return { success: true, user: adminUser, token: "demo-token" };
+    if (isDemoCredentials(email, password)) {
+      return demoLoginResult();
     }
     return { success: false, message: "Identifiants invalides." };
   }
@@ -19,18 +41,40 @@ export async function loginAdmin(email: string, password: string): Promise<{ suc
       body: JSON.stringify({ email, password })
     });
 
-    const payload = await response.json();
+    const contentType = response.headers.get("content-type") ?? "";
+    const payload = contentType.includes("application/json") ? await response.json() : null;
 
     if (!response.ok) {
-      return { success: false, message: payload.message ?? "Erreur de connexion." };
+      if (response.status === 401) {
+        return { success: false, message: payload?.message ?? "Identifiants invalides." };
+      }
+
+      if (isDemoCredentials(email, password)) {
+        return demoLoginResult();
+      }
+
+      return { success: false, message: payload?.message ?? "Connexion impossible." };
+    }
+
+    if (!payload?.data?.user || !payload?.data?.token) {
+      if (isDemoCredentials(email, password)) {
+        return demoLoginResult();
+      }
+
+      return { success: false, message: "Réponse API invalide." };
     }
 
     return {
       success: true,
       user: payload.data.user,
-      token: payload.data.token
+      token: payload.data.token,
+      mode: "api"
     };
   } catch {
+    if (isDemoCredentials(email, password)) {
+      return demoLoginResult();
+    }
+
     return { success: false, message: "API indisponible." };
   }
 }

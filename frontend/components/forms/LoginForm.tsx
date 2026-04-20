@@ -10,6 +10,7 @@ export function LoginForm() {
   const [email, setEmail] = useState("admin@pentagone-formations.com");
   const [password, setPassword] = useState("admin123");
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
@@ -18,6 +19,7 @@ export function LoginForm() {
     event.preventDefault();
     setLoading(true);
     setError(null);
+    setInfo(null);
 
     const result = await loginAdmin(email, password);
 
@@ -27,12 +29,16 @@ export function LoginForm() {
       return;
     }
 
+    if (result.message) {
+      setInfo(result.message);
+    }
+
     login({
       token: result.token,
       user: result.user
     });
 
-    router.push("/admin/dashboard");
+    router.push(result.mode === "demo" ? "/admin/dashboard?mode=demo" : "/admin/dashboard");
   }
 
   return (
@@ -68,7 +74,7 @@ export function LoginForm() {
 
         <div className="rounded-[1.35rem] border border-sky-100 bg-sky-50/80 p-4 text-sm text-slate-600">
           <p className="font-semibold text-slate-900">Compte de démonstration prérempli</p>
-          <p className="mt-2">Utilisez les identifiants ci-dessous pour entrer immédiatement dans l’espace admin.</p>
+          <p className="mt-2">Utilisez les identifiants ci-dessous pour entrer immédiatement dans l’espace admin. Si l’API ne répond pas, la connexion bascule automatiquement en mode démo.</p>
         </div>
 
         <div>
@@ -79,6 +85,7 @@ export function LoginForm() {
           <label className="label">Mot de passe</label>
           <input className="field" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </div>
+        {info ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{info}</div> : null}
         {error ? <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Connexion..." : "Se connecter"}
